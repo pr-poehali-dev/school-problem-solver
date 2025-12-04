@@ -7,6 +7,7 @@ import Icon from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
 
 const API_URL = 'https://functions.poehali.dev/d273c6e3-ecaf-4f39-b359-56dd2c00ae57';
+const OCR_URL = 'https://functions.poehali.dev/80fa2638-2dad-4a21-b362-b8e1d5fc9f85';
 
 const Index = () => {
   const [expression, setExpression] = useState('');
@@ -15,6 +16,7 @@ const Index = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const categories = [
     { id: 'arithmetic', name: 'Арифметика', icon: 'Calculator', color: 'from-purple-500 to-pink-500' },
@@ -41,6 +43,42 @@ const Index = () => {
       setHistory(data.solutions || []);
     } catch (error) {
       console.error('Failed to load history:', error);
+    }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Image = reader.result as string;
+        
+        const response = await fetch(OCR_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            image: base64Image,
+          }),
+        });
+        
+        const data = await response.json();
+        if (data.text) {
+          setExpression(data.text);
+          if (data.category) {
+            setSelectedCategory(data.category);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Failed to process image:', error);
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -180,7 +218,7 @@ const Index = () => {
               ))}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 mb-4">
               <Input
                 type="text"
                 placeholder="Например: 2x + 5 = 15"
@@ -206,6 +244,43 @@ const Index = () => {
                   </>
                 )}
               </Button>
+            </div>
+
+            <div className="relative">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                id="image-upload"
+              />
+              <label htmlFor="image-upload">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full py-6 text-lg border-2 border-dashed hover:border-purple-500 hover:bg-purple-50 transition-all"
+                  disabled={uploadingImage}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('image-upload')?.click();
+                  }}
+                >
+                  {uploadingImage ? (
+                    <>
+                      <Icon name="Loader2" size={24} className="mr-2 animate-spin" />
+                      Распознаю текст...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="Camera" size={24} className="mr-2" />
+                      Загрузить фото задачи
+                    </>
+                  )}
+                </Button>
+              </label>
+              <p className="text-sm text-gray-500 text-center mt-2">
+                📸 Сфотографируй задачу — я распознаю текст автоматически
+              </p>
             </div>
           </CardContent>
         </Card>
