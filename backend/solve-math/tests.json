@@ -1,0 +1,45 @@
+{
+  "tests": [
+    {
+      "name": "Test arithmetic calculation",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "expression": "2 + 2",
+        "category": "arithmetic"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "answer": "string",
+        "steps": "array",
+        "explanation": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test algebra equation",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "expression": "2x + 5 = 15",
+        "category": "algebra"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "answer": "string",
+        "steps": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get solutions history",
+      "method": "GET",
+      "path": "/?limit=5",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "solutions": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

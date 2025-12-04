@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -6,10 +6,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
 
+const API_URL = 'https://functions.poehali.dev/d273c6e3-ecaf-4f39-b359-56dd2c00ae57';
+
 const Index = () => {
   const [expression, setExpression] = useState('');
   const [solution, setSolution] = useState<any>(null);
   const [selectedCategory, setSelectedCategory] = useState('algebra');
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const categories = [
     { id: 'arithmetic', name: 'Арифметика', icon: 'Calculator', color: 'from-purple-500 to-pink-500' },
@@ -25,18 +30,49 @@ const Index = () => {
     trigonometry: ['sin(30°)', 'cos(45°)', 'tan(60°)', 'sin²x + cos²x'],
   };
 
-  const handleSolve = () => {
-    const steps = [
-      { step: 1, description: 'Упрощаем выражение', formula: expression, explanation: 'Начальное выражение' },
-      { step: 2, description: 'Выполняем операции', formula: '2x = 10', explanation: 'Переносим константу вправо' },
-      { step: 3, description: 'Находим решение', formula: 'x = 5', explanation: 'Делим обе части на 2' },
-    ];
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const loadHistory = async () => {
+    try {
+      const response = await fetch(`${API_URL}?limit=10`);
+      const data = await response.json();
+      setHistory(data.solutions || []);
+    } catch (error) {
+      console.error('Failed to load history:', error);
+    }
+  };
+
+  const handleSolve = async () => {
+    if (!expression.trim()) return;
     
-    setSolution({
-      answer: 'x = 5',
-      steps: steps,
-      explanation: 'Линейное уравнение решается путем изоляции переменной.',
-    });
+    setLoading(true);
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          expression: expression,
+          category: selectedCategory,
+        }),
+      });
+      
+      const data = await response.json();
+      setSolution(data);
+      await loadHistory();
+    } catch (error) {
+      console.error('Failed to solve:', error);
+      setSolution({
+        answer: 'Ошибка',
+        steps: [],
+        explanation: 'Не удалось решить задачу. Попробуйте ещё раз.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -54,7 +90,48 @@ const Index = () => {
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Решаем математические задачи с подробными объяснениями
           </p>
+          <Button
+            variant="outline"
+            onClick={() => setShowHistory(!showHistory)}
+            className="mt-4"
+          >
+            <Icon name="History" size={20} className="mr-2" />
+            {showHistory ? 'Скрыть историю' : 'Показать историю'}
+          </Button>
         </header>
+        
+        {showHistory && history.length > 0 && (
+          <Card className="mb-8 shadow-lg border-0 animate-fade-in">
+            <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white">
+              <CardTitle className="flex items-center gap-2">
+                <Icon name="History" size={24} />
+                История решений
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-3">
+                {history.slice(0, 5).map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => {
+                      setExpression(item.expression);
+                      setSelectedCategory(item.category);
+                      setSolution(item);
+                      setShowHistory(false);
+                    }}
+                  >
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800">{item.expression}</p>
+                      <p className="text-sm text-gray-600">{item.answer}</p>
+                    </div>
+                    <Badge variant="secondary">{item.category === 'arithmetic' ? 'Арифметика' : item.category === 'algebra' ? 'Алгебра' : item.category === 'geometry' ? 'Геометрия' : 'Тригонометрия'}</Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid md:grid-cols-4 gap-4 mb-8 animate-slide-up">
           {categories.map((category, index) => (
@@ -115,10 +192,19 @@ const Index = () => {
               <Button 
                 onClick={handleSolve}
                 className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-6 text-lg shadow-lg"
-                disabled={!expression}
+                disabled={!expression || loading}
               >
-                <Icon name="Zap" size={20} className="mr-2" />
-                Решить
+                {loading ? (
+                  <>
+                    <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
+                    Решаю...
+                  </>
+                ) : (
+                  <>
+                    <Icon name="Zap" size={20} className="mr-2" />
+                    Решить
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>
